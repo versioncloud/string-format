@@ -97,7 +97,7 @@ otherSpec = describe "others" $ do
                                      else []
     in all (== '_') $ fn (format "{:_d}" (i :: Integer))
   prop "precision" $ \(i, NonNegative p) ->
-    let fmt = fromString $ "{:." ++ (show p) ++ "}"
+    let fmt = fromString $ "{:." ++ (show p) ++ "f}"
     in format fmt i == showFFloat (Just p) (i :: Double) ""
 
 
