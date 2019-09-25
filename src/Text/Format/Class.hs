@@ -80,7 +80,9 @@ class FormatArg a where
   keyOf _ = Index (-1)
 
 instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
-  formatArg x _ fmt = formatTime defaultTimeLocale (fmtSpecs fmt) x
+  formatArg x _ fmt = formatTime defaultTimeLocale specs x
+    where
+      specs = case fmtSpecs fmt of "" -> "%Y-%m-%dT%H:%M:%S"; cs -> cs
 
 instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
   formatArg x (Nest _ k@(Index i)) = formatArg (x !! i) k
