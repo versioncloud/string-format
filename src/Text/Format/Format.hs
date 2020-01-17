@@ -19,49 +19,59 @@ data FmtItem = Lit String
              | Arg ArgKey ArgFmt
              deriving (Show, Eq)
 
--- | Format is a list of 'FmtItem'
---
--- A format contains a variet of literal chars and arguments to be replaced,
--- argument sytax is as follows:
---
--- > {[key][:fmt]}
---
--- * __{}__ means it must be wraped in a pair of braces,
--- * __[]__ means an optional field (or field group),
--- * __key__ is argument's key, see 'ArgKey',
--- * __fmt__ (must leading with a colon) is argument's format, see 'ArgFmt'.
---
--- If you need to include a brace character in the literal text,
--- it can be escaped by doubling: {{ and }}.
---
--- if key is ommited, it means an automically positioned argument.
---
--- Examples:
---
--- >>> unFormat "a left brace {{"
--- [Lit "a left brace {"]
---
--- >>> unFormat "hello {}"
--- [Lit "hello ", Arg (Index 0) (ArgFmt ...)]
---
--- >>> unFormat "{} {}"
--- [Arg (Index 0) (ArgFmt ...), Arg (Index 1) (ArgFmt ...)]
---
--- >>> unFormat "{1} {0}"
--- [Arg (Index 1) (ArgFmt ...), Arg (Index 0) (ArgFmt ...)]
---
--- >>> unFormat "{gender} {age}"
--- [Arg (Name "gender") (ArgFmt ...), Arg (Name "age") (ArgFmt ...)]
---
--- >>> unFormat "{0!gender}"
--- [Arg (Nest (Index 0) (Name "gender")) (ArgFmt ..)]
---
--- >>> unFormat "{:<30s}"
--- [Arg (Index 0) (ArgFmt { fmtAlgin = AlignLeft, fmtWidth = Left 30, ...})]
---
--- >>> unFormat "{:<{width}s}"
--- [Arg (Index 0) (ArgFmt {fmtWidth = Right (Name "width"), ...})]
---
+{-| A data type indicates a format string
+
+Format string contains "replacement fields" surrounded by curly braces {}.
+Anything that is not contained in braces is considered literal text, which is
+copied unchanged to the output. If you need to include a brace character in the
+literal text, it can be escaped by doubling {{ and }}.
+
+
+==== Format string syntax
+
+  @
+    format :: {chars | ("{" [key][":"fmt] "}")}
+    key    :: \<see 'ArgKey'\>
+    fmt    :: \<see 'ArgFmt'\>
+  @
+
+  Note: This library use a description language to describe syntax,
+        see next section.
+
+  Note: A key can be omitted only if there is no explict index key before it,
+        it will be automatically caculated and inserted to the format string
+        according to its position in the omitted key sequence.
+
+  Examples
+
+    >>> "I like {coffee}, I drink it everyday." :: Format
+    >>> "{no:<20}    {name:<20}    {age}" :: Format
+    >>> "{{\"no\": {no}, \"name\": \"{name}\"}}" :: Format
+
+
+==== Syntax description language
+
+  A syntax expr may contain a list of fields as followings
+
+  @
+    identifier                       identifier of an expr
+    \<description\>                    use human language as an expr
+    ::                               use right hand expr to describe identifier
+    ()                               a required field, may be omitted
+    []                               an optional field
+    {}                               repeat any times of the field
+    |                                logical or, choice between left and right
+    ""                               literal text
+  @
+
+  Built-in exprs
+
+  @
+    char  :: \<any character\>
+    chars :: {char}
+    int   :: \<integer without sign\>
+  @
+-}
 newtype Format = Format { unFormat :: [FmtItem] } deriving (Show, Eq)
 
 instance IsString Format where

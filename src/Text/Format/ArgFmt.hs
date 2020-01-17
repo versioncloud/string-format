@@ -19,140 +19,133 @@ import           Text.Format.ArgKey
 import           Text.Format.Error
 
 
--- | How to align argument
+-- | A data type indicates how to align arguments
 --
--- Note: 'AlignNone' is equivalent to 'AlignLeft' unless
--- number's sign aware enabled
---
-data FmtAlign = AlignNone     -- ^ alignment is not specified
-              | AlignLeft     -- ^ pad chars before argument
-              | AlignRight    -- ^ pad chars before argument
-              | AlignCenter   -- ^ pad chars before and after argument
-              | AlignSign     -- ^ number specified, pad between sign and digits
+data FmtAlign = AlignNone     -- ^ Not specified, equivalent to 'AlignLeft'
+                              -- unless number's sign aware enabled.
+              | AlignLeft     -- ^ Forces the argument to be left-aligned
+                              -- within the available space.
+              | AlignRight    -- ^ Forces the field to be right-aligned within
+                              -- the available space.
+              | AlignCenter   -- ^ Forces the field to be centered within the
+                              -- available space.
+              | AlignSign     -- ^ Number specified, forces the padding to be
+                              -- placed after the sign (if any) but before
+                              -- the digits.
               deriving (Show, Eq)
 
 
--- | How to show number's sign
+-- | A data type indicates how to show number's sign
 --
--- Note: 'SignNone' is equivalent to 'SignMinus' for signed numbers
-data FmtSign = SignNone      -- ^ sign is not specified
-             | SignPlus      -- ^ show \'+\' for positive and \'-\' for negative
-             | SignMinus     -- ^ show negative's sign only
-             | SignSpace     -- ^ show ' ' for positive and '-' for negative
+data FmtSign = SignNone      -- ^ Not specified, equivalent to 'SignMinus'
+                             -- for signed numbers.
+             | SignPlus      -- ^ Sign should be used for both positive as well
+                             -- as negative numbers.
+             | SignMinus     -- ^ Sign should be used only for negative numbers
+             | SignSpace     -- ^ A leading space should be used on positive
+                             -- numbers, and a minus sign on negative numbers.
              deriving (Show, Eq)
 
 
--- | Number separator
-data FmtNumSep = NumSepNone   -- ^ don't seprate
-               | NumSepDash   -- ^ seprate by '_'
-               | NumSepComma  -- ^ seprate by ','
+-- | A data type indicates number separator
+--
+-- e.g. 20,200,101  20_200_202
+data FmtNumSep = NumSepNone   -- ^ Don't separate number
+               | NumSepDash   -- ^ Use dash as number separator
+               | NumSepComma  -- ^ Use comma as number separator
                deriving (Show, Eq)
 
 
--- | Description of argument format options
---
--- When read from string, the sytax is as follows:
---
--- > [[pad]align][sign][#][0][width][separator][.precision][specs]
---
--- * __[]__ means an optional field (or filed group)
--- * __pad__ means char to be used for padding, it should be a literal 'Char',
---   default is space
--- * __align__ means align option
---
---    @
---      <       AlignLeft
---      >       AlignRight
---      ^       AlignCenter
---      =       AlignSign
---      empty   AlignNone
---    @
---
---  * __sign__ means number sign option
---
---    @
---      +       SignPlus
---      -       SignMinus
---      space   SignSpace
---      empty   SignNone
---    @
---
---  * __#__ means number alternate form option
---
---  * __0__ preceding __width__ option means sign-aware as well as zero-padding
---
---    @
---      number       AlignNone & sign aware = AlignSign & pad '0'
---      other types  means nothing
---    @
---
---  * __width__ means minimum argument width,
---    it may be an 'ArgKey' indicates it's value from another integer argument
---
---    @
---      integer   minimum width
---      empty     no minimum widht constrain
---    @
---
---  * __separator__ number separator option
---
---    @
---      _       NumSepDash
---      ,       NumSepComma
---      empty   NumSepNone
---    @
---
---  * __precision__ (must leading with a dot)
---    number preceding or maximum with option
---    it may be an 'ArgKey' indicates it's value from another integer argument
---
---    @
---      for number (floating point) types   number precision
---      for non-number types                maximum widht
---    @
---
---  * __specs__ type specified options,
---    it determines how data should be presented,
---    see available type presentions below
---
---
---  == String presentions
---  @
---    s               explicitly specified string type
---    empty           implicitly specified string type
---  @
---
---  == Integer presentions
---  @
---    b               binary format integer
---    c               char point ('Char' will be trasformed by 'Char.ord' first)
---    d               decimal format integer
---    o               octal format integer
---    x               hex format integer (use lower-case letters)
---    X               hex format integer (use upper-case letters)
---    empty           same as "d"
---  @
---
---  == Floating point number presentions
---  @
---    e               exponent notation, see 'Numeric.showEFloat'
---    E               same as "e", but use upper-case 'E' as separator
---    f               fixed-point notation see 'Numeric.showFFloat'
---    F               same as "f", but converts nan to NAN and inf to INF
---    g               general format, see 'Numeric.showGFloat'
---    G               same as "g", but use upper-case 'E' as separator and
---                    converts nan to NAN and inf to INF
---    %               percentage, same as "f" except multiplies 100 first and
---                    followed by a percent sign
---    empty           same as "g"
---  @
---
---  == Examples
---  >>> read "*<30s" :: ArgFmt
---  >>> read "<10.20s" :: ArgFmt
---  >>> read "0=10_.20d" :: ArgFmt
---  >>> read "#010_.20b" :: ArgFmt
---
+{-| A data type indicates how to format an argument.
+
+==== The format syntax
+
+  @
+    fmt       :: [[pad] align][sign]["#"]["0"][width][sep]["." precision][specs]
+    pad       :: char
+    align     :: "\<" | "\>" | "^" | "="
+    sign      :: "+" | "-" | " "
+    width     :: int | ("{" key "}")
+    sep       :: "_" | ","
+    precision :: int | ("{" key "}")
+    specs     :: chars
+    key       :: \<see 'ArgKey'\>
+  @
+
+  * @#@ will cause the "alternate form" to be used for integers.
+
+      The alternate format is defined differently for different types.
+
+      * add 0b prefix for binary
+      * add 0o prefix for octal
+      * add 0x prefix for hexadecimal
+
+  * @with@ indicates minimum with of the field
+
+      If omitted, the field width will be determined by the content.
+
+      When align is omitted, preceding width by a zero character enables
+      sign-aware zero-padding for numbers.
+      This is equivalent to a pad of 0 with an align of =.
+
+  * @precision@ indicates how many digits should be displayed after the decimal
+    point for a floating point number, or maximum width for other types.
+
+      When precision is omitted
+
+      * preceding dot is present, indicates precision is 0
+      * preceding dot is omitted too, indicates precision not set,
+        default value (i.e. 6 for floating point numbers, 0 for others)
+        will be used.
+
+  * @specs@ indicates type specified options
+
+      When specs is omitted, the default specs will be used.
+      The default specs is defined differently from different types.
+
+  Examples
+
+    >>> read "*<30s" :: ArgFmt
+    >>> read "<10.20s" :: ArgFmt
+    >>> read "0=10_.20d" :: ArgFmt
+    >>> read "#010_.20b" :: ArgFmt
+
+==== String specs
+
+  @
+    s
+    default         s
+  @
+
+==== Integer specs
+
+  @
+    b               binary format integer
+    c               char point ('Char' will be trasformed by 'Char.ord' first)
+    d               decimal format integer
+    o               octal format integer
+    x               hex format integer (use lower-case letters)
+    X               hex format integer (use upper-case letters)
+    default         d
+  @
+
+==== Floating point number specs
+
+  @
+    e               exponent notation, see 'Numeric.showEFloat'
+    E               same as "e", but use upper-case 'E' as separator
+    f               fixed-point notation see 'Numeric.showFFloat'
+    F               same as "f", but converts nan to NAN and inf to INF
+    g               general format, see 'Numeric.showGFloat'
+    G               same as "g", but use upper-case 'E' as separator and
+                    converts nan to NAN and inf to INF
+    %               percentage, same as "f" except multiplies 100 first and
+                    followed by a percent sign
+    default         g
+  @
+
+See 'Text.Format.FormatArg' to learn how to define specs for your own types.
+-}
 data ArgFmt = ArgFmt { fmtAlign     :: FmtAlign
                      , fmtPad       :: Char
                      , fmtSign      :: FmtSign
@@ -162,7 +155,11 @@ data ArgFmt = ArgFmt { fmtAlign     :: FmtAlign
                      , fmtNumSep    :: FmtNumSep
                      , fmtPrecision :: Either Int ArgKey
                      , fmtSpecs     :: String
-                     , fmtRaw       :: String
+                     , fmtRaw       :: String -- ^ When reading from a string,
+                                              -- different strings may produce
+                                              -- the same 'ArgFmt', this field
+                                              -- keeps the original string here
+                                              -- in case it is use later.
                      } deriving (Show, Eq)
 
 instance Read ArgFmt where
@@ -246,6 +243,9 @@ prettyFmtNumSep NumSepDash  = "_"
 prettyFmtNumSep NumSepComma = ","
 
 
+-- | Pretty showing 'ArgFmt'
+--
+-- Note: Don't create 'ArgFmt' manually, 'read' from a string, see 'ArgFmt'.
 prettyArgFmt :: ArgFmt -> String
 prettyArgFmt (ArgFmt{fmtRaw=raw@(_:_)}) = raw
 prettyArgFmt (ArgFmt{..}) = concat $

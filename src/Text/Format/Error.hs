@@ -13,7 +13,11 @@ module Text.Format.Error
 import           Control.Exception
 
 
-data ArgError = ArgKeyError | ArgFmtError deriving (Show, Eq)
+-- | A data type indicates an arg error
+data ArgError = ArgKeyError -- ^ Can not find argument for the given key
+              | ArgFmtError -- ^ The field format descriptor
+                            -- does not match the argument
+              deriving (Show, Eq)
 
 instance Exception ArgError
 
@@ -28,6 +32,7 @@ catchArgError key fmt e = maybe (throw e) handle (fromException e)
 
 
 --------------------------------------------------------------------------------
+-- | Raises an error with a vformat-specific prefix on the message string.
 vferror :: String -> a
 vferror = errorWithoutStackTrace . ("vformat: " ++)
 
@@ -41,10 +46,10 @@ errorNoParse = vferror . ("no parse " ++) . show
 errorCloseTag :: String -> a
 errorCloseTag = vferror . (++ " close tag '}' missing") . show
 
--- *** Exception: vformat: bad arg key "xxx"
+-- | Calls 'vferror' to indicate an arg key error for a given type.
 errorArgKey :: String -> a
 errorArgKey = vferror . ("bad arg key " ++) . show
 
--- *** Exception: vformat: bad arg format "xxx"
+-- | Calls 'vferror' to indicate an arg format error for a given type.
 errorArgFmt :: String -> a
 errorArgFmt = vferror . ("bad arg format " ++) . show

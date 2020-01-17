@@ -33,55 +33,75 @@ import           Text.Format.Format
 type Formatter = ArgKey -> ArgFmt -> Either SomeException String
 
 
--- | Typeclass of formatable values.
---
--- Make an instance for your own data types:
---
--- @
---  data Coffe = Black | Latte | Other deriving Show
---
---  instance FormatArg Coffe where
---    formatArg x k fmt = formatArg (show x) k fmt
--- @
---
--- @
---  newtype Big a = Big { unBig :: a}
---
---  instance FormatArg a => FormatArg (Big a) where
---    formatArg (Big x) k fmt = formatArg x k fmt
--- @
---
--- @
---  data Student = Student { name     :: String
---                         , age      :: Int
---                         , email    :: String
---                         } deriving Generic
---
---  instance FormatArg Student
--- @
---
--- @
---  data Address = Address { country :: String
---                         , city    :: String
---                         , street  :: String
---                         }
---
---  instance FormatArg Address where
---    formatArg x k fmt = formatArg result k fmt
---      where
---        result :: String
---        result = format "{:s},{:s},{:s}" (street x) (city x) (country x)
--- @
---
+{-| Typeclass of formatable values.
+
+The 'formatArg' method takes a value, a key and a field format descriptor and
+either fails due to a 'ArgError' or  produce a string as the result.
+There is a default 'formatArg' for 'Generic' instances.
+
+There are two reasons may cause formatting fail
+
+  (1) Can not find argument for the given key.
+
+  (2) The field format descriptor does not match the argument.
+
+==== Extending to new types
+
+Those format functions can be extended to format types other than those
+provided by default. This is done by instantiating 'FormatArg'.
+
+Examples
+
+@
+  \{\-\# LANGUAGE DeriveGeneric     \#\-\}
+  \{\-\# LANGUAGE OverloadedStrings \#\-\}
+
+  import           Control.Exception
+  import           GHC.Generics
+  import           Text.Format
+
+  instance FormatArg () where
+    formatArg x k fmt@(ArgFmt{fmtSpecs=\"U\"}) =
+      let fmt' = fmt{fmtSpecs = \"\"}
+      in  formatArg (show x) k fmt'
+    formatArg _ _ _ = Left ArgFmtError
+
+  data Color = Red | Yellow | Blue deriving Generic
+
+  instance FormatArg Color
+
+  data Triple = Triple String Int Double deriving Generic
+
+  instance FormatArg Triple
+
+  data Student = Student { no   :: Int
+                         , name :: String
+                         , age  :: Int
+                         } deriving Generic
+
+  instance FormatArg Student
+
+  main :: IO ()
+  main = do
+    putStrLn $ format \"A unit {:U}\" ()
+    putStrLn $ format \"I like {}.\" Blue
+    putStrLn $ format \"Triple {0!0} {0!1} {0!2}\" $ Triple \"Hello\" 123 pi
+    putStrLn $ format1 \"Student: {no} {name} {age}\" $ Student 1 \"neo\" 30
+@
+-}
 class FormatArg a where
   formatArg :: a -> Formatter
 
   default formatArg :: (Generic a, GFormatArg (Rep a)) => a -> Formatter
   formatArg x = gformatArg (from x)
 
+  -- | This method is used to get the key of a top-level argument.
+  -- Top-level argument means argument that directly passed to format
+  -- functions ('format', 'format1').
   keyOf :: a -> ArgKey
   keyOf _ = Index (-1)
 
+-- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
 instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
   formatArg = throwIfNest $ \x k fmt ->
     let specs = fmtSpecs fmt <|> "%Y-%m-%dT%H:%M:%S"
@@ -258,7 +278,7 @@ instance FormatType String where
 
 
 --------------------------------------------------------------------------------
--- | A type represent a named ArgKey and an another data
+-- | A type represents the top-level named key argument.
 data (:=) a = String := a
 infixr 6 :=
 

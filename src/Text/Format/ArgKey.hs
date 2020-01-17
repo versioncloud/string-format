@@ -5,45 +5,30 @@ import           Data.Char     (isDigit)
 import qualified Data.List     as L
 
 
--- | ArgKey indicates a key of format argument
---
---  There are two kinds of basic key, named and indexed,
---  and a composed key indicates a key which is a attribute of
---  an argument.
---
---  When read from a String, the sytax is as followings:
---
---  1. if all chars are digits, it means an indexed key,
---
---  2. if there is a __"!"__, it means a nested key,
---     the chars before __"!"__ is parent key,
---     and the chars after are child key,
---
---  3. if you want to use literal __"!"__ in the key, you can write it doublely,
---     __"!!"__,
---
---  4. if there are not all digits, it's a named key.
---
---  Examples:
---
---  >>> read "country" :: ArgKey
---  Name "country"
---
---  >>> read "123" :: ArgKey
---  Index 123
---
---  >>> read "country!name" :: ArgKey
---  Nest (Name "country") (Name "name")
---
---  >>> read "country!cities!10" :: ArgKey
---  Nest (Name "country") (Nest (Name "cities") (Index 10))
---
---  >>> read "coun!!try" :: ArgKey
---  Name "coun!try"
---
-data ArgKey = Index Int
-            | Name String
-            | Nest ArgKey ArgKey
+{-| A data type indicates key of format argument
+
+==== The key syntax
+
+  @
+    key :: [(int | chars) {"!" (int | chars)}]
+  @
+
+  Note: See 'Format' to learn more about syntax description language
+
+  Examples
+
+    >>> read "0" :: ArgKey
+    >>> read "country" :: ArgKey
+    >>> read "coun!!try" :: ArgKey
+    >>> read "country!name" :: ArgKey
+    >>> read "country!cities!10!name" :: ArgKey
+-}
+data ArgKey = Index Int           -- ^ Refers to a positional argument or
+                                  -- index in a list like argument.
+            | Name String         -- ^ Refers to a named argument or a record
+                                  -- name of an argument.
+            | Nest ArgKey ArgKey  -- ^ Refers to a attribute (index or name) of
+                                  -- an argument.
             deriving (Eq, Ord)
 
 instance Read ArgKey where
