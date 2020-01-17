@@ -67,16 +67,16 @@ module Text.Format
   , module Text.Format.Format
   , module Text.Format.ArgKey
   , module Text.Format.ArgFmt
-  , module Text.Format.Internal
+  , module Text.Format.Error
   ) where
 
-import           Data.Map             (empty)
+import           Data.Map           (empty)
 
 import           Text.Format.ArgFmt
 import           Text.Format.ArgKey
 import           Text.Format.Class
+import           Text.Format.Error
 import           Text.Format.Format
-import           Text.Format.Internal
 
 
 -- | Format a variable number of argument with Python-style formatting string

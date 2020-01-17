@@ -1,4 +1,4 @@
-module Text.Format.ArgKey ( ArgKey (..) ) where
+module Text.Format.ArgKey ( ArgKey (..), emptyKey ) where
 
 import           Control.Arrow
 import           Data.Char     (isDigit)
@@ -44,10 +44,10 @@ import qualified Data.List     as L
 data ArgKey = Index Int
             | Name String
             | Nest ArgKey ArgKey
-            deriving (Show, Eq, Ord)
+            deriving (Eq, Ord)
 
 instance Read ArgKey where
-  readsPrec _ "" = [ (Index (-1), "") ]
+  readsPrec _ "" = [ (emptyKey, "") ]
   readsPrec _ cs = [ parse cs ]
     where
       parse :: String -> (ArgKey, String)
@@ -68,3 +68,16 @@ instance Read ArgKey where
           (cs1, "!")             -> (cs1, "!")
           (cs1, '!' : '!' : cs2) -> first ((cs1 ++ "!") ++) (break cs2)
           (cs1, '!' : cs2)       -> (cs1, cs2)
+
+instance Show ArgKey where
+  show k@(Index i) = if emptyKey == k then "" else show i
+  show (Name s)    = escape s
+    where
+      escape :: String -> String
+      escape ""         = ""
+      escape ('!' : cs) = "!!" ++ escape cs
+      escape (c : cs)   = (c : escape cs)
+  show (Nest k1 k2)  = show k1 ++ "!" ++ show k2
+
+emptyKey :: ArgKey
+emptyKey = Index (-1)

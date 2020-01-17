@@ -1,19 +1,22 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Text.Format.ArgFmt
   ( FmtAlign(..)
   , FmtSign(..)
   , FmtNumSep(..)
   , ArgFmt(..)
+  , prettyArgFmt
   , formatText
   , formatNumber
   ) where
 
 import           Control.Arrow
-import           Data.Char            (isDigit)
-import qualified Data.List            as L
+import           Data.Char          (isDigit)
+import qualified Data.List          as L
 import           Numeric
 
 import           Text.Format.ArgKey
-import           Text.Format.Internal
+import           Text.Format.Error
 
 
 -- | How to align argument
@@ -159,19 +162,24 @@ data ArgFmt = ArgFmt { fmtAlign     :: FmtAlign
                      , fmtNumSep    :: FmtNumSep
                      , fmtPrecision :: Either Int ArgKey
                      , fmtSpecs     :: String
+                     , fmtRaw       :: String
                      } deriving (Show, Eq)
 
 instance Read ArgFmt where
   readsPrec _ cs =
-      let (align, pad, cs1) = parseAlign cs
-          (sign, cs2) = parseSign cs1
-          (alternate, cs3) = parseAlternate cs2
-          (aware, cs4) = parseSignAware cs3
-          (width, cs5) = parseWidth cs4
-          (sep, cs6) = parseNumSep cs5
-          (precision, specs) = parsePrecision cs6
-      in [(ArgFmt align pad sign alternate aware width sep precision specs, "")]
+      let (fmtAlign, fmtPad, cs1) = parseAlign cs
+          (fmtSign, cs2) = parseSign cs1
+          (fmtAlternate, cs3) = parseAlternate cs2
+          (fmtSignAware, cs4) = parseSignAware cs3
+          (fmtWidth, cs5) = parseWidth cs4
+          (fmtNumSep, cs6) = parseNumSep cs5
+          (fmtPrecision, fmtSpecs) = parsePrecision cs6
+          fmtRaw = cs
+      in [ (ArgFmt{..}, "") ]
     where
+      stack :: String -> String
+      stack = reverse . (`drop` (reverse cs)) . length
+
       parseAlign (c : '<' : cs) = (AlignLeft, c, cs)
       parseAlign (c : '>' : cs) = (AlignRight, c, cs)
       parseAlign (c : '^' : cs) = (AlignCenter, c, cs)
@@ -195,11 +203,11 @@ instance Read ArgFmt where
 
       parseWidth ('{' : cs) =
         case L.break (== '}') cs of
-          ("", _)         -> errorCloseTag
           (ks, '}' : cs1) -> (Right (read ks), cs1)
+          _               -> errorCloseTag $ stack cs
       parseWidth cs         =
         case L.break (not . isDigit) cs of
-          ("", cs1) -> (Left (-1), cs)
+          ("", cs1) -> (Left 0, cs)
           (ds, cs1) -> (Left (read ds), cs1)
 
       parseNumSep ('_' : cs) = (NumSepDash, cs)
@@ -208,13 +216,51 @@ instance Read ArgFmt where
 
       parsePrecision ('.' : '{' : cs) =
         case L.break (== '}') cs of
-          ("", _)         -> errorCloseTag
           (ks, '}' : cs1) -> (Right (read ks), cs1)
+          _               -> errorCloseTag $ stack cs
       parsePrecision ('.' : cs)       =
         case L.break (not . isDigit) cs of
           ("", cs1) -> (Left 0, cs)
           (ds, cs1) -> (Left (read ds), cs1)
       parsePrecision cs               = (Left (-1), cs)
+
+
+prettyFmtAlign :: FmtAlign -> String
+prettyFmtAlign AlignNone   = ""
+prettyFmtAlign AlignLeft   = "<"
+prettyFmtAlign AlignRight  = ">"
+prettyFmtAlign AlignCenter = "^"
+prettyFmtAlign AlignSign   = "="
+
+
+prettyFmtSign :: FmtSign -> String
+prettyFmtSign SignNone  = ""
+prettyFmtSign SignPlus  = "+"
+prettyFmtSign SignMinus = "-"
+prettyFmtSign SignSpace = " "
+
+
+prettyFmtNumSep :: FmtNumSep -> String
+prettyFmtNumSep NumSepNone  = ""
+prettyFmtNumSep NumSepDash  = "_"
+prettyFmtNumSep NumSepComma = ","
+
+
+prettyArgFmt :: ArgFmt -> String
+prettyArgFmt (ArgFmt{fmtRaw=raw@(_:_)}) = raw
+prettyArgFmt (ArgFmt{..}) = concat $
+    [pad, align, sign, alternate, aware, width, sep, ".", precision, fmtSpecs]
+  where
+    showInt i = if i == 0 then "" else show i
+    pad = if fmtAlign == AlignNone then "" else [fmtPad]
+    align = prettyFmtAlign fmtAlign
+    sign = prettyFmtSign fmtSign
+    alternate = if fmtAlternate then "#" else ""
+    aware = if fmtSignAware then "0" else ""
+    width = either showInt (('{' :) . (++ "}") . show) fmtWidth
+    sep = prettyFmtNumSep fmtNumSep
+    precision = either showInt (('{' :) . (++ "}") . show) fmtPrecision
+
 
 formatText :: ArgFmt -> ShowS
 formatText fmt@ArgFmt{fmtWidth=(Left minw), fmtPrecision=(Left maxw)} cs
@@ -231,7 +277,8 @@ formatText fmt@ArgFmt{fmtWidth=(Left minw), fmtPrecision=(Left maxw)} cs
     pad AlignCenter n c =
       let ln = div n 2
       in replicate ln c ++ cs1 ++ (replicate (n - ln) c)
-formatText _ _ = errorArgFmt "this should never happen"
+formatText fmt _ = errorNoParse $ prettyArgFmt fmt
+
 
 formatNumber :: ArgFmt -> Bool -> Int -> Maybe Char -> ShowS
 formatNumber fmt signed sepWidth flag cs = uncurry (++) $
@@ -245,7 +292,7 @@ formatNumber fmt signed sepWidth flag cs = uncurry (++) $
     pad AlignNone   c  True  (ps, cs) = pad AlignSign '0' False (ps, cs)
     pad AlignLeft   c  _     (ps, cs) = (ps, cs ++ replicate (padw ps cs) c)
     pad AlignRight  c  _     (ps, cs) = (replicate (padw ps cs) c ++ ps, cs)
-    pad AlignSign   c  True  (ps, cs) = pad AlignSign c   True  (ps, cs)
+    pad AlignSign   c  True  (ps, cs) = pad AlignSign c False (ps, cs)
     pad AlignSign  '0' False (ps, cs) =
       let cs1 = fixSep (fmtNumSep fmt) sepWidth (padw ps cs) cs
       in (ps, cs1)

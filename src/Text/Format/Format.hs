@@ -6,13 +6,13 @@ module Text.Format.Format
 
 
 import           Control.Arrow
-import           Data.Char            (isDigit)
-import qualified Data.List            as L
+import           Data.Char          (isDigit)
+import qualified Data.List          as L
 import           Data.String
 
 import           Text.Format.ArgFmt
 import           Text.Format.ArgKey
-import           Text.Format.Internal
+import           Text.Format.Error
 
 
 data FmtItem = Lit String
@@ -65,8 +65,11 @@ data FmtItem = Lit String
 newtype Format = Format { unFormat :: [FmtItem] } deriving (Show, Eq)
 
 instance IsString Format where
-  fromString = Format . (fixIndex 0) . parse
+  fromString cs = Format $ fixIndex 0 $ parse cs
     where
+      stack :: String -> String
+      stack = reverse . (`drop` (reverse cs)) . length
+
       parse :: String -> [FmtItem]
       parse "" = []
       parse cs =
@@ -75,13 +78,13 @@ instance IsString Format where
             case parseArg cs of
               (cs1, Just cs2, cs3) ->
                 (Arg (read cs1) (read cs2)) : (parse cs3)
-              _ -> error "format error"
+              _ -> errorNoParse $ stack ""
           (ls, cs1) -> (Lit ls) : (parse cs1)
 
       parseLiteral :: String -> (String, String)
       parseLiteral ""               = ("", "")
       parseLiteral ('{' : '{' : cs) = first ('{' :) (parseLiteral cs)
-      parseLiteral ('}' : '}' : cs) = first ('{' :) (parseLiteral cs)
+      parseLiteral ('}' : '}' : cs) = first ('}' :) (parseLiteral cs)
       parseLiteral ('{' : cs)       = ([], '{' : cs)
       parseLiteral ('}' : cs)       = ([], '}' : cs)
       parseLiteral (c : cs)         = first (c :) (parseLiteral cs)
@@ -94,8 +97,8 @@ instance IsString Format where
           (cs1, ':' : cs2) ->
             case parseArgFmt 0 cs2 of
               (cs11, '}' : cs12) -> (cs1, Just cs11, cs12)
-              _                  -> errorCloseTag
-          _ -> errorCloseTag
+              _                  -> errorCloseTag $ stack cs2
+          _ -> errorCloseTag $ stack cs
 
       parseArgKey :: String -> (String, String)
       parseArgKey ""           = ("", "")
@@ -115,8 +118,8 @@ instance IsString Format where
       -- auto-positioned arg
       fixIndex next ((Arg (Index (-1)) fmt) : items) =
         (Arg (Index next) fmt) : fixIndex (next + 1) items
-      -- once there is an explict arg key, auto-position args not working
-      fixIndex next items@((Arg _ _) : _) = items
+      -- once there is an explict index arg key, auto-position args not working
+      fixIndex next items@((Arg (Index _) _) : _) = items
       fixIndex next (item : items) = item : fixIndex next items
 
 -- | A variant of 'Format',
