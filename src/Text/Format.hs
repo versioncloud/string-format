@@ -22,6 +22,8 @@ module Text.Format
   , Format
   , Format1
   , ArgKey(..)
+  , topKey
+  , popKey
   , ArgFmt(..)
   , prettyArgFmt
   , FmtAlign(..)

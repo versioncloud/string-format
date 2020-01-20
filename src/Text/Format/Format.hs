@@ -125,12 +125,13 @@ instance IsString Format where
 
       fixIndex :: Int -> [FmtItem] -> [FmtItem]
       fixIndex _ [] = []
-      -- auto-positioned arg
-      fixIndex next ((Arg (Index (-1)) fmt) : items) =
-        (Arg (Index next) fmt) : fixIndex (next + 1) items
-      -- once there is an explict index arg key, auto-position args not working
+      -- fixing empty key
+      fixIndex next ((Arg key fmt) : items)
+        | key == mempty = (Arg (Index next) fmt) : fixIndex (next + 1) items
+      -- once there is an explict indexed key, stop fixing
       fixIndex next items@((Arg (Index _) _) : _) = items
       fixIndex next (item : items) = item : fixIndex next items
+
 
 -- | A variant of 'Format',
 -- it transforms all argument's key to __Nest (Index 0) key__

@@ -60,20 +60,24 @@ Examples
   import           GHC.Generics
   import           Text.Format
 
+  -- Manually extend to ()
   instance FormatArg () where
     formatArg x k fmt@(ArgFmt{fmtSpecs=\"U\"}) =
       let fmt' = fmt{fmtSpecs = \"\"}
       in  formatArg (show x) k fmt'
-    formatArg _ _ _ = Left ArgFmtError
+    formatArg _ _ _ = Left $ toException ArgFmtError
 
+  -- Use default generic implementation for type with nullary data constructors.
   data Color = Red | Yellow | Blue deriving Generic
 
   instance FormatArg Color
 
+  -- Use default generic implementation for type with non-nullary data constructor.
   data Triple = Triple String Int Double deriving Generic
 
   instance FormatArg Triple
 
+  -- Use default generic implementation for type using record syntax.
   data Student = Student { no   :: Int
                          , name :: String
                          , age  :: Int
@@ -81,12 +85,29 @@ Examples
 
   instance FormatArg Student
 
+  -- Customize field names
+  data Book = Book { bookName   :: String
+                   , bookAuthor :: String
+                   , bookPrice  :: Double
+                   }
+
+  instance FormatArg Book where
+    formatArg x k fmt
+      | k == mempty = return $ format1 \"{name} {author} {price:.2f}\" x
+      | k == Name \"name\" = formatArg (bookName x) mempty fmt
+      | k == Name \"author\" = formatArg (bookAuthor x) mempty fmt
+      | k == Name \"price\" = formatArg (bookPrice x) mempty fmt
+      | otherwise = Left $ toException $ ArgKeyError
+
   main :: IO ()
   main = do
     putStrLn $ format \"A unit {:U}\" ()
     putStrLn $ format \"I like {}.\" Blue
     putStrLn $ format \"Triple {0!0} {0!1} {0!2}\" $ Triple \"Hello\" 123 pi
     putStrLn $ format1 \"Student: {no} {name} {age}\" $ Student 1 \"neo\" 30
+    putStrLn $ format \"A book: {}\" $ Book \"Math\" \"nobody\" 99.99
+    putStrLn $ format1 \"Book: {name}, Author: {author}, Price: {price:.2f}\" $
+      Book \"Math\" \"nobody\" 99.99
 @
 -}
 class FormatArg a where
@@ -99,78 +120,77 @@ class FormatArg a where
   -- Top-level argument means argument that directly passed to format
   -- functions ('format', 'format1').
   keyOf :: a -> ArgKey
-  keyOf _ = Index (-1)
+  keyOf _ = mempty
 
 -- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
 instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
-  formatArg = throwIfNest $ \x k fmt ->
+  formatArg x k fmt =
     let specs = fmtSpecs fmt <|> "%Y-%m-%dT%H:%M:%S"
         x'    = formatTime defaultTimeLocale specs x
-        fmt'  = fmt{fmtSpecs=""}
-    in formatArg x' k fmt'
+    in formatArg x' k $ fmt{fmtSpecs=""}
 
 instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
-  formatArg x (Nest _ k@(Index i))          = formatArg (x !! i) (Index (-1))
-  formatArg x (Nest _ k@(Nest (Index i) _)) = formatArg (x !! i) k
-  formatArg _ _                             = const $ throwM ArgKeyError
+  formatArg x (Index i)          = formatArg (x !! i) mempty
+  formatArg x (Nest (Index i) k) = formatArg (x !! i) k
+  formatArg _ _                  = const $ throwM ArgKeyError
 
 instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg (Map String a) where
-  formatArg x (Nest _ k@(Name n))          = formatArg (x ! n) (Index (-1))
-  formatArg x (Nest _ k@(Nest (Name n) _)) = formatArg (x ! n) k
-  formatArg _ _                            = const $ throwM ArgKeyError
+  formatArg x (Name n)          = formatArg (x ! n) mempty
+  formatArg x (Nest (Name n) k) = formatArg (x ! n) k
+  formatArg _ _                 = const $ throwM ArgKeyError
 
 instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg (Map Int a) where
-  formatArg x (Nest _ k@(Index i))          = formatArg (x ! i) (Index (-1))
-  formatArg x (Nest _ k@(Nest (Index i) _)) = formatArg (x ! i) k
-  formatArg _ _                             = const $ throwM ArgKeyError
+  formatArg x (Index i)          = formatArg (x ! i) mempty
+  formatArg x (Nest (Index i) k) = formatArg (x ! i) k
+  formatArg _ _                  = const $ throwM ArgKeyError
 
 instance FormatArg String where
-  formatArg = throwIfNest formatString
+  formatArg = throwIfNotEmpty formatString
 
 instance FormatArg Char where
-  formatArg = throwIfNest $ formatInteger False . toInteger . ord
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger . ord
 
 instance FormatArg Int where
-  formatArg = throwIfNest $ formatInteger True . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
 instance FormatArg Int8 where
-  formatArg = throwIfNest $ formatInteger True . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
 instance FormatArg Int16 where
-  formatArg = throwIfNest $ formatInteger True . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
 instance FormatArg Int32 where
-  formatArg = throwIfNest $ formatInteger True . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
 instance FormatArg Int64 where
-  formatArg = throwIfNest $ formatInteger True . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
 instance FormatArg Word where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Word8 where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Word16 where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Word32 where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Word64 where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Integer where
-  formatArg = throwIfNest $ formatInteger True
+  formatArg = throwIfNotEmpty $ formatInteger True
 
 instance FormatArg Natural where
-  formatArg = throwIfNest $ formatInteger False . toInteger
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
 instance FormatArg Float where
-  formatArg = throwIfNest formatRealFloat
+  formatArg = throwIfNotEmpty formatRealFloat
 
 instance FormatArg Double where
-  formatArg = throwIfNest formatRealFloat
+  formatArg = throwIfNotEmpty formatRealFloat
 
 
 --------------------------------------------------------------------------------
@@ -196,8 +216,7 @@ instance (Constructor c, GFormatArg f) => GFormatArg (C1 c f) where
 -- Constructor without arguments
 -- e.g. data Greet = Hello | Hi
 instance {-# OVERLAPPING  #-} Constructor c => GFormatArg (C1 c U1) where
-  gformatArg _ (Nest _ _) = const $ throwM ArgKeyError
-  gformatArg c k          = formatArg (conName c) k
+  gformatArg c k = formatArg (conName c) k
 
 -- Try Products one by one
 instance (GFormatArg f, GFormatArg g) => GFormatArg (f :*: g) where
@@ -207,22 +226,21 @@ instance (GFormatArg f, GFormatArg g) => GFormatArg (f :*: g) where
       x <|> y = catchIf isArgKeyError x $ const y
 
       dec1 :: ArgKey -> ArgKey
-      dec1 (Index i)                   = Index (i - 1)
-      dec1 (Nest p (Index i))          = Nest p (Index (i - 1))
-      dec1 (Nest p (Nest (Index i) k)) = Nest p $ Nest (Index (i - 1)) k
-      dec1 k                           = k
+      dec1 (Index i)    = Index (i - 1)
+      dec1 (Nest k1 k2) = mappend (dec1 k1) k2
+      dec1 k            = k
 
 -- Selector (record and none record)
 -- e.g. data GreetTo = Hello String | Hi String
 --      data GreetTo = Hello { name :: String } | Hi { name :: String }
 instance (Selector c, GFormatArg f) => GFormatArg (S1 c f) where
-  gformatArg s@(M1 x) (Nest _ (Index 0))
-    | selName s == "" = gformatArg x (Index (-1))
-  gformatArg s@(M1 x) (Nest _ k@(Nest (Index 0) _))
+  gformatArg s@(M1 x) (Index 0)
+    | selName s == "" = gformatArg x mempty
+  gformatArg s@(M1 x) (Nest (Index 0) k)
     | selName s == "" = gformatArg x k
-  gformatArg s@(M1 x) (Nest _ (Name record))
-    | selName s == record = gformatArg x (Index (-1))
-  gformatArg s@(M1 x) (Nest _ k@(Nest (Name record) _))
+  gformatArg s@(M1 x) (Name record)
+    | selName s == record = gformatArg x mempty
+  gformatArg s@(M1 x) (Nest (Name record) k)
     | selName s == record = gformatArg x k
   gformatArg _ _ = const $ throwM ArgKeyError
 
@@ -241,8 +259,9 @@ instance (FormatArg a, FormatType r) => FormatType (a -> r) where
   sfmt fmt args = \arg -> sfmt fmt $
       insert (fixIndex $ keyOf arg) (formatArg arg) args
     where
-      fixIndex (Index (-1)) = Index $ length [n | Index n <- keys args]
-      fixIndex k            = k
+      fixIndex k
+        | k == mempty = Index $ length [n | Index n <- keys args]
+        | otherwise   = k
 
 instance FormatType String where
   sfmt fmt args = formats (unFormat fmt)
@@ -256,8 +275,8 @@ instance FormatType String where
 
       formats1 :: FmtItem -> String
       formats1 (Lit cs)       = cs
-      formats1 (Arg key ifmt) =
-        either (onError (key, ifmt)) id $ (getFormatter key) key (fixArgFmt ifmt)
+      formats1 (Arg key ifmt) = either (onError (key, ifmt)) id $
+        (getFormatter key) (popKey key) (fixArgFmt ifmt)
 
       fixArgFmt :: ArgFmt -> ArgFmt
       fixArgFmt ifmt@(ArgFmt{fmtWidth=(Right key)}) =
@@ -273,8 +292,7 @@ instance FormatType String where
       formatPrecision = formatWidth
 
       getFormatter :: ArgKey -> Formatter
-      getFormatter (Nest key _)  = getFormatter key
-      getFormatter key = fromMaybe (\_ _ -> throwM ArgKeyError) $ args !? key
+      getFormatter = maybe (\_ _ -> throwM ArgKeyError) id . (args !?) . topKey
 
 
 --------------------------------------------------------------------------------
@@ -283,9 +301,7 @@ data (:=) a = String := a
 infixr 6 :=
 
 instance FormatArg a => FormatArg ((:=) a) where
-  formatArg (_ := x) (Nest _ k) = formatArg x k
-  formatArg (_ := x) _          = formatArg x (Index (-1))
-
+  formatArg (_ := x) k = formatArg x k
   keyOf (ks := _) = Name ks
 
 
@@ -351,6 +367,7 @@ formatRealFloat x _ fmt@ArgFmt{fmtSpecs=specs, fmtPrecision=prec} =
     showx _ _ _     = throwM ArgFmtError
 
 
-throwIfNest :: (a -> Formatter) -> a -> Formatter
-throwIfNest _ _ (Nest _ _) _ = throwM ArgKeyError
-throwIfNest f x k fmt        = f x k fmt
+throwIfNotEmpty :: (a -> Formatter) -> a -> Formatter
+throwIfNotEmpty f x k fmt
+  | k == mempty  = f x k fmt
+  | otherwise = throwM ArgKeyError
