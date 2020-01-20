@@ -38,6 +38,7 @@ main = hspec $ do
     prop "keys are disordered" $ uncurry (==) . formatDisordered
     prop "arg format is omitted" $
       uncurry (==) . formatOrdered "{:c}{}{}{}{}{}{}"
+    prop "generic" $ uncurry (==) . formatGeneric
     it "escaped brace" $
       format "{{" == ['{'] && format "}}" == ['}']
     prop "alignment and padding" $ \(align, PadChar c, n) ->
@@ -138,6 +139,31 @@ instance Arbitrary BasicArgs where
                         <*> arbitrary
 
 
+data Color = Red | Yellow | Blue deriving (Generic, Show)
+
+instance FormatArg Color
+
+
+data Flag = Flag Color Int Int deriving (Generic, Show)
+
+instance FormatArg Flag
+
+
+data Country = Country { _name :: String
+                       , _flag :: Flag
+                       } deriving (Generic, Show)
+
+instance FormatArg Country where
+  formatArg = genericFormatArg $ defaultOptions { fieldLabelModifier = drop 1 }
+
+instance Arbitrary Country where
+  arbitrary = Country <$> genName <*> genFlag
+    where
+      genName = (:[]) <$> elements ['A'..'Z']
+      genFlag = Flag <$> genColor <*> arbitrary <*> arbitrary
+      genColor = elements [Red, Yellow, Blue]
+
+
 data PadChar = PadChar { getPadChar :: Char } deriving Show
 
 instance Arbitrary PadChar where
@@ -196,6 +222,12 @@ formatDisordered (BasicArgs{..}) =
     word' = show word
     fs = "{6:s}{3:d}{2:g}{1:g}{4:d}{5:d}{0:c}"
 
+
+formatGeneric :: Country -> (String, String)
+formatGeneric country@(Country{_flag=(Flag color width height), ..}) =
+  ( format1 "{name} {flag!0} {flag!1} {flag!2}" country
+  , format "{} {} {} {}" _name color width height
+  )
 
 formatAlign :: FmtAlign -> Char -> Int -> (String, String)
 formatAlign align c n =
