@@ -128,39 +128,26 @@ class FormatArg a where
   default formatArg :: (Generic a, GFormatArg (Rep a)) => a -> Formatter
   formatArg = genericFormatArg defaultOptions
 
+  formatArgList :: [a] -> Formatter
+  formatArgList xs (Index i)          = formatArg (xs !! i) mempty
+  formatArgList xs (Nest (Index i) k) = formatArg (xs !! i) k
+  formatArgList  _ _                  = const $ throwM ArgKeyError
+
   -- | This method is used to get the key of a top-level argument.
   -- Top-level argument means argument that directly passed to format
   -- functions ('format', 'format1').
   keyOf :: a -> ArgKey
   keyOf _ = mempty
 
--- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
-instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
-  formatArg x k fmt =
-    let specs = fmtSpecs fmt <|> "%Y-%m-%dT%H:%M:%S"
-        x'    = formatTime defaultTimeLocale specs x
-    in formatArg x' k $ fmt{fmtSpecs=""}
-
-instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
-  formatArg x (Index i)          = formatArg (x !! i) mempty
-  formatArg x (Nest (Index i) k) = formatArg (x !! i) k
-  formatArg _ _                  = const $ throwM ArgKeyError
-
-instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg (Map String a) where
-  formatArg x (Name n)          = formatArg (x ! n) mempty
-  formatArg x (Nest (Name n) k) = formatArg (x ! n) k
-  formatArg _ _                 = const $ throwM ArgKeyError
-
-instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg (Map Int a) where
-  formatArg x (Index i)          = formatArg (x ! i) mempty
-  formatArg x (Nest (Index i) k) = formatArg (x ! i) k
-  formatArg _ _                  = const $ throwM ArgKeyError
-
-instance FormatArg String where
-  formatArg = throwIfNotEmpty formatString
-
 instance FormatArg Char where
   formatArg = throwIfNotEmpty $ formatInteger False . toInteger . ord
+  formatArgList = throwIfNotEmpty formatString
+
+instance FormatArg Float where
+  formatArg = throwIfNotEmpty formatRealFloat
+
+instance FormatArg Double where
+  formatArg = throwIfNotEmpty formatRealFloat
 
 instance FormatArg Int where
   formatArg = throwIfNotEmpty $ formatInteger True . toInteger
@@ -177,6 +164,12 @@ instance FormatArg Int32 where
 instance FormatArg Int64 where
   formatArg = throwIfNotEmpty $ formatInteger True . toInteger
 
+instance FormatArg Integer where
+  formatArg = throwIfNotEmpty $ formatInteger True
+
+instance FormatArg Natural where
+  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+
 instance FormatArg Word where
   formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
@@ -192,17 +185,26 @@ instance FormatArg Word32 where
 instance FormatArg Word64 where
   formatArg = throwIfNotEmpty $ formatInteger False . toInteger
 
-instance FormatArg Integer where
-  formatArg = throwIfNotEmpty $ formatInteger True
+-- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
+instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
+  formatArg x k fmt =
+    let specs = fmtSpecs fmt <|> "%Y-%m-%dT%H:%M:%S"
+        x'    = formatTime defaultTimeLocale specs x
+    in formatArg x' k $ fmt{fmtSpecs=""}
 
-instance FormatArg Natural where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
+  {-# SPECIALIZE instance FormatArg [Char] #-}
+  formatArg = formatArgList
 
-instance FormatArg Float where
-  formatArg = throwIfNotEmpty formatRealFloat
+instance FormatArg a => FormatArg (Map String a) where
+  formatArg x (Name n)          = formatArg (x ! n) mempty
+  formatArg x (Nest (Name n) k) = formatArg (x ! n) k
+  formatArg _ _                 = const $ throwM ArgKeyError
 
-instance FormatArg Double where
-  formatArg = throwIfNotEmpty formatRealFloat
+instance FormatArg a => FormatArg (Map Int a) where
+  formatArg x (Index i)          = formatArg (x ! i) mempty
+  formatArg x (Nest (Index i) k) = formatArg (x ! i) k
+  formatArg _ _                  = const $ throwM ArgKeyError
 
 
 --------------------------------------------------------------------------------
