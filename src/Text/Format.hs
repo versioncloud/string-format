@@ -36,6 +36,13 @@ module Text.Format
   , FmtSign(..)
   , FmtNumSep(..)
   , (:=) (..)
+    -- * Standard Formatters
+  , formatString
+  , formatChar
+  , formatInt
+  , formatWord
+  , formatInteger
+  , formatRealFloat
     -- * Errors
   , ArgError(..)
   , errorArgKey

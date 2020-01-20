@@ -13,6 +13,12 @@ module Text.Format.Class
   , defaultOptions
   , genericFormatArg
   , (:=) (..)
+  , formatString
+  , formatChar
+  , formatInt
+  , formatWord
+  , formatInteger
+  , formatRealFloat
   ) where
 
 
@@ -139,51 +145,53 @@ class FormatArg a where
   keyOf :: a -> ArgKey
   keyOf _ = mempty
 
+instance FormatArg Bool
+
 instance FormatArg Char where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger . ord
-  formatArgList = throwIfNotEmpty formatString
+  formatArg = formatChar
+  formatArgList = formatString
 
 instance FormatArg Float where
-  formatArg = throwIfNotEmpty formatRealFloat
+  formatArg = formatRealFloat
 
 instance FormatArg Double where
-  formatArg = throwIfNotEmpty formatRealFloat
+  formatArg = formatRealFloat
 
 instance FormatArg Int where
-  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
+  formatArg = formatInt
 
 instance FormatArg Int8 where
-  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
+  formatArg = formatInt
 
 instance FormatArg Int16 where
-  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
+  formatArg = formatInt
 
 instance FormatArg Int32 where
-  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
+  formatArg = formatInt
 
 instance FormatArg Int64 where
-  formatArg = throwIfNotEmpty $ formatInteger True . toInteger
+  formatArg = formatInt
 
 instance FormatArg Integer where
-  formatArg = throwIfNotEmpty $ formatInteger True
+  formatArg = formatInteger
 
 instance FormatArg Natural where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatIntegral False . toInteger
 
 instance FormatArg Word where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatWord
 
 instance FormatArg Word8 where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatWord
 
 instance FormatArg Word16 where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatWord
 
 instance FormatArg Word32 where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatWord
 
 instance FormatArg Word64 where
-  formatArg = throwIfNotEmpty $ formatInteger False . toInteger
+  formatArg = formatWord
 
 -- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
 instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
@@ -352,13 +360,20 @@ instance FormatArg a => FormatArg ((:=) a) where
 
 
 --------------------------------------------------------------------------------
+{-| Formatter for string values
+
+@since 0.11.0
+-}
 formatString :: String -> Formatter
+formatString _ k _ | k /= mempty = throwM ArgKeyError
 formatString x _ fmt@(ArgFmt{fmtSpecs = ""})  = Right $ formatText fmt x
 formatString x _ fmt@(ArgFmt{fmtSpecs = "s"}) = Right $ formatText fmt x
 formatString _ _ _                            = throwM ArgFmtError
 
-formatInteger :: Bool -> Integer -> Formatter
-formatInteger signed x _ fmt@ArgFmt{fmtSpecs=specs} =
+
+formatIntegral :: Bool -> Integer -> Formatter
+formatIntegral _ _ k _ | k /= mempty = throwM ArgKeyError
+formatIntegral signed x _ fmt@ArgFmt{fmtSpecs=specs} =
     formatNumber fmt signed (sepw specs) (flag specs) <$> (showx specs x)
   where
     sepw :: String -> Int
@@ -392,7 +407,44 @@ formatInteger signed x _ fmt@ArgFmt{fmtSpecs=specs} =
     showx "X" x   = map toUpper <$> showx "x" x
     showx _ _     = throwM ArgFmtError
 
+
+{-| Formatter for 'Char' values
+
+@since 0.11.0
+-}
+formatChar :: Char -> Formatter
+formatChar = formatWord . ord
+
+{-| Formatter for 'Int' values
+
+@since 0.11.0
+ -}
+formatInt :: (Integral a, Bounded a) => a -> Formatter
+formatInt = formatIntegral True . toInteger
+
+
+{-| Formatter for 'Word' values
+
+@since 0.11.0
+ -}
+formatWord :: (Integral a, Bounded a) => a -> Formatter
+formatWord = formatIntegral False . toInteger
+
+
+{-| Formatter for 'Integer' values
+
+@since 0.11.0
+ -}
+formatInteger :: Integer -> Formatter
+formatInteger = formatIntegral True
+
+
+{-| Formatter for 'RealFloat' values
+
+@since 0.11.0
+ -}
 formatRealFloat :: RealFloat a => a -> Formatter
+formatRealFloat _ k _ | k /= mempty = throwM ArgKeyError
 formatRealFloat x _ fmt@ArgFmt{fmtSpecs=specs, fmtPrecision=prec} =
     formatNumber fmt True 3 Nothing <$> showx specs prec1 x
   where
@@ -411,9 +463,3 @@ formatRealFloat x _ fmt@ArgFmt{fmtSpecs=specs, fmtPrecision=prec} =
     showx "G" p x   = map toUpper <$> showx "g" p x
     showx "%" p x   = (++ "%") <$> (showx "f" p (x * 100))
     showx _ _ _     = throwM ArgFmtError
-
-
-throwIfNotEmpty :: (a -> Formatter) -> a -> Formatter
-throwIfNotEmpty f x k fmt
-  | k == mempty  = f x k fmt
-  | otherwise = throwM ArgKeyError
