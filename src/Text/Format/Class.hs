@@ -1,6 +1,7 @@
 {-# LANGUAGE DefaultSignatures    #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -8,8 +9,12 @@ module Text.Format.Class
   ( Formatter
   , FormatArg(..)
   , FormatType(..)
+  , Options(..)
+  , defaultOptions
+  , genericFormatArg
   , (:=) (..)
   ) where
+
 
 import           Control.Applicative
 import           Control.Monad.Catch
@@ -30,6 +35,7 @@ import           Text.Format.ArgKey
 import           Text.Format.Error
 import           Text.Format.Format
 
+
 type Formatter = ArgKey -> ArgFmt -> Either SomeException String
 
 
@@ -37,7 +43,8 @@ type Formatter = ArgKey -> ArgFmt -> Either SomeException String
 
 The 'formatArg' method takes a value, a key and a field format descriptor and
 either fails due to a 'ArgError' or  produce a string as the result.
-There is a default 'formatArg' for 'Generic' instances.
+There is a default 'formatArg' for 'Generic' instances, which applies
+'defaultOptions' to 'genericFormatArg'.
 
 There are two reasons may cause formatting fail
 
@@ -99,6 +106,11 @@ Examples
       | k == Name \"price\" = formatArg (bookPrice x) mempty fmt
       | otherwise = Left $ toException $ ArgKeyError
 
+  \-\- A better way to customize field names
+  \-\- instance FormatArg Book where
+  \-\-   formatArg = genericFormatArg $
+  \-\-     defaultOptions { fieldLabelModifier = drop 4 }
+
   main :: IO ()
   main = do
     putStrLn $ format \"A unit {:U}\" ()
@@ -114,7 +126,7 @@ class FormatArg a where
   formatArg :: a -> Formatter
 
   default formatArg :: (Generic a, GFormatArg (Rep a)) => a -> Formatter
-  formatArg x = gformatArg (from x)
+  formatArg = genericFormatArg defaultOptions
 
   -- | This method is used to get the key of a top-level argument.
   -- Top-level argument means argument that directly passed to format
@@ -194,8 +206,40 @@ instance FormatArg Double where
 
 
 --------------------------------------------------------------------------------
+{-| Options that specify how to format your datatype
+
+Options can be set using record syntax on defaultOptions with the fields below.
+
+@since 0.11.0
+-}
+data Options = Options { fieldLabelModifier :: String -> String
+                       }
+
+{-| Default format options
+
+@
+'Options'
+{ 'fieldLabelModifier' = id
+}
+@
+
+@since 0.11.0
+-}
+defaultOptions = Options { fieldLabelModifier = id
+                         }
+
+
+{-| A configurable generic 'Formatter' creator.
+
+@since 0.11.0
+-}
+genericFormatArg :: (Generic a, GFormatArg (Rep a)) => Options -> a -> Formatter
+genericFormatArg opts x = gformatArg (from x) opts
+
+
+--------------------------------------------------------------------------------
 class GFormatArg f where
-  gformatArg :: f p -> ArgKey -> ArgFmt -> Either SomeException String
+  gformatArg :: f p -> Options -> Formatter
 
 -- Data type
 instance GFormatArg f =>  GFormatArg (D1 c f) where
@@ -211,17 +255,17 @@ instance (GFormatArg f, GFormatArg g) => GFormatArg (f :+: g) where
 --      data GreetTo = Hello String | Hi String
 --      data Greet = Hello | Hi
 instance (Constructor c, GFormatArg f) => GFormatArg (C1 c f) where
-  gformatArg c@(M1 x) = gformatArg x
+  gformatArg (M1 x) = gformatArg x
 
 -- Constructor without arguments
 -- e.g. data Greet = Hello | Hi
 instance {-# OVERLAPPING  #-} Constructor c => GFormatArg (C1 c U1) where
-  gformatArg c k = formatArg (conName c) k
+  gformatArg c _ = formatArg (conName c)
 
 -- Try Products one by one
 instance (GFormatArg f, GFormatArg g) => GFormatArg (f :*: g) where
-  gformatArg (x :*: y) k fmt =
-      gformatArg x k fmt <|> gformatArg y (dec1 k) fmt
+  gformatArg (x :*: y) opts k fmt =
+      gformatArg x opts k fmt <|> gformatArg y opts (dec1 k) fmt
     where
       x <|> y = catchIf isArgKeyError x $ const y
 
@@ -234,19 +278,19 @@ instance (GFormatArg f, GFormatArg g) => GFormatArg (f :*: g) where
 -- e.g. data GreetTo = Hello String | Hi String
 --      data GreetTo = Hello { name :: String } | Hi { name :: String }
 instance (Selector c, GFormatArg f) => GFormatArg (S1 c f) where
-  gformatArg s@(M1 x) (Index 0)
-    | selName s == "" = gformatArg x mempty
-  gformatArg s@(M1 x) (Nest (Index 0) k)
-    | selName s == "" = gformatArg x k
-  gformatArg s@(M1 x) (Name record)
-    | selName s == record = gformatArg x mempty
-  gformatArg s@(M1 x) (Nest (Name record) k)
-    | selName s == record = gformatArg x k
-  gformatArg _ _ = const $ throwM ArgKeyError
+  gformatArg s@(M1 x) opts (Index 0)
+    | selName s == "" = gformatArg x opts mempty
+  gformatArg s@(M1 x) opts (Nest (Index 0) k)
+    | selName s == "" = gformatArg x opts k
+  gformatArg s@(M1 x) opts@(Options{..}) (Name record)
+    | (fieldLabelModifier $ selName s) == record = gformatArg x opts mempty
+  gformatArg s@(M1 x) opts@(Options{..}) (Nest (Name record) k)
+    | (fieldLabelModifier $ selName s) == record = gformatArg x opts k
+  gformatArg _ _ _ = const $ throwM ArgKeyError
 
 -- FormatArg instance
 instance (FormatArg c) => GFormatArg (K1 i c) where
-  gformatArg (K1 c) = formatArg c
+  gformatArg (K1 c) _ = formatArg c
 
 
 --------------------------------------------------------------------------------

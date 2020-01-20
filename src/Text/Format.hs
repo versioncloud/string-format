@@ -15,9 +15,15 @@ module Text.Format
   ( -- * Format functions
     format
   , format1
-    -- * Data types
+    -- * Classes
   , FormatArg(formatArg)
   , FormatType(..)
+  -- * Generic format arg and options
+  , Options
+  , defaultOptions
+  , fieldLabelModifier
+  , genericFormatArg
+    -- * Data types
   , Formatter
   , Format
   , Format1
