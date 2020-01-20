@@ -61,15 +61,15 @@ data FmtNumSep = NumSepNone   -- ^ Don't separate number
 ==== The format syntax
 
   @
-    fmt       :: [[pad] align][sign]["#"]["0"][width][sep]["." precision][specs]
-    pad       :: char
-    align     :: "\<" | "\>" | "^" | "="
-    sign      :: "+" | "-" | " "
-    width     :: int | ("{" key "}")
-    sep       :: "_" | ","
-    precision :: int | ("{" key "}")
-    specs     :: chars
-    key       :: \<see 'ArgKey'\>
+  fmt       -> [[pad] align][sign]["#"]["0"][width][sep]["." precision][specs]
+  pad       -> char
+  align     -> "\<" | "\>" | "^" | "="
+  sign      -> "+" | "-" | " "
+  width     -> int | ("{" key "}")
+  sep       -> "_" | ","
+  precision -> int | ("{" key "}")
+  specs     -> chars
+  key       -> \<see 'ArgKey'\>
   @
 
   * @#@ will cause the "alternate form" to be used for integers.
@@ -113,35 +113,35 @@ data FmtNumSep = NumSepNone   -- ^ Don't separate number
 ==== String specs
 
   @
-    s
-    default         s
+  s
+  default         s
   @
 
 ==== Integer specs
 
   @
-    b               binary format integer
-    c               char point ('Char' will be trasformed by 'Char.ord' first)
-    d               decimal format integer
-    o               octal format integer
-    x               hex format integer (use lower-case letters)
-    X               hex format integer (use upper-case letters)
-    default         d
+  b               binary format integer
+  c               char point ('Char' will be trasformed by 'Char.ord' first)
+  d               decimal format integer
+  o               octal format integer
+  x               hex format integer (use lower-case letters)
+  X               hex format integer (use upper-case letters)
+  default         d
   @
 
 ==== Floating point number specs
 
   @
-    e               exponent notation, see 'Numeric.showEFloat'
-    E               same as "e", but use upper-case 'E' as separator
-    f               fixed-point notation see 'Numeric.showFFloat'
-    F               same as "f", but converts nan to NAN and inf to INF
-    g               general format, see 'Numeric.showGFloat'
-    G               same as "g", but use upper-case 'E' as separator and
-                    converts nan to NAN and inf to INF
-    %               percentage, same as "f" except multiplies 100 first and
-                    followed by a percent sign
-    default         g
+  e               exponent notation, see 'Numeric.showEFloat'
+  E               same as "e", but use upper-case 'E' as separator
+  f               fixed-point notation see 'Numeric.showFFloat'
+  F               same as "f", but converts nan to NAN and inf to INF
+  g               general format, see 'Numeric.showGFloat'
+  G               same as "g", but use upper-case 'E' as separator and
+                  converts nan to NAN and inf to INF
+  %               percentage, same as "f" except multiplies 100 first and
+                  followed by a percent sign
+  default         g
   @
 
 See 'Text.Format.FormatArg' to learn how to define specs for your own types.

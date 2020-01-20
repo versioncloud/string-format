@@ -66,66 +66,66 @@ provided by default. This is done by instantiating 'FormatArg'.
 Examples
 
 @
-  \{\-\# LANGUAGE DeriveGeneric     \#\-\}
-  \{\-\# LANGUAGE OverloadedStrings \#\-\}
+\{\-\# LANGUAGE DeriveGeneric     \#\-\}
+\{\-\# LANGUAGE OverloadedStrings \#\-\}
 
-  import           Control.Exception
-  import           GHC.Generics
-  import           Text.Format
+import           Control.Exception
+import           GHC.Generics
+import           Text.Format
 
-  -- Manually extend to ()
-  instance FormatArg () where
-    formatArg x k fmt@(ArgFmt{fmtSpecs=\"U\"}) =
-      let fmt' = fmt{fmtSpecs = \"\"}
-      in  formatArg (show x) k fmt'
-    formatArg _ _ _ = Left $ toException ArgFmtError
+-- Manually extend to ()
+instance FormatArg () where
+  formatArg x k fmt@(ArgFmt{fmtSpecs=\"U\"}) =
+    let fmt' = fmt{fmtSpecs = \"\"}
+    in  formatArg (show x) k fmt'
+  formatArg _ _ _ = Left $ toException ArgFmtError
 
-  -- Use default generic implementation for type with nullary data constructors.
-  data Color = Red | Yellow | Blue deriving Generic
+-- Use default generic implementation for type with nullary data constructors.
+data Color = Red | Yellow | Blue deriving Generic
 
-  instance FormatArg Color
+instance FormatArg Color
 
-  -- Use default generic implementation for type with non-nullary data constructor.
-  data Triple = Triple String Int Double deriving Generic
+-- Use default generic implementation for type with non-nullary data constructor.
+data Triple = Triple String Int Double deriving Generic
 
-  instance FormatArg Triple
+instance FormatArg Triple
 
-  -- Use default generic implementation for type using record syntax.
-  data Student = Student { no   :: Int
-                         , name :: String
-                         , age  :: Int
-                         } deriving Generic
+-- Use default generic implementation for type using record syntax.
+data Student = Student { no   :: Int
+                       , name :: String
+                       , age  :: Int
+                       } deriving Generic
 
-  instance FormatArg Student
+instance FormatArg Student
 
-  -- Customize field names
-  data Book = Book { bookName   :: String
-                   , bookAuthor :: String
-                   , bookPrice  :: Double
-                   }
+-- Customize field names
+data Book = Book { bookName   :: String
+                 , bookAuthor :: String
+                 , bookPrice  :: Double
+                 }
 
-  instance FormatArg Book where
-    formatArg x k fmt
-      | k == mempty = return $ format1 \"{name} {author} {price:.2f}\" x
-      | k == Name \"name\" = formatArg (bookName x) mempty fmt
-      | k == Name \"author\" = formatArg (bookAuthor x) mempty fmt
-      | k == Name \"price\" = formatArg (bookPrice x) mempty fmt
-      | otherwise = Left $ toException $ ArgKeyError
+instance FormatArg Book where
+  formatArg x k fmt
+    | k == mempty = return $ format1 \"{name} {author} {price:.2f}\" x
+    | k == Name \"name\" = formatArg (bookName x) mempty fmt
+    | k == Name \"author\" = formatArg (bookAuthor x) mempty fmt
+    | k == Name \"price\" = formatArg (bookPrice x) mempty fmt
+    | otherwise = Left $ toException $ ArgKeyError
 
-  \-\- A better way to customize field names
-  \-\- instance FormatArg Book where
-  \-\-   formatArg = genericFormatArg $
-  \-\-     defaultOptions { fieldLabelModifier = drop 4 }
+\-\- A better way to customize field names
+\-\- instance FormatArg Book where
+\-\-   formatArg = genericFormatArg $
+\-\-     defaultOptions { fieldLabelModifier = drop 4 }
 
-  main :: IO ()
-  main = do
-    putStrLn $ format \"A unit {:U}\" ()
-    putStrLn $ format \"I like {}.\" Blue
-    putStrLn $ format \"Triple {0!0} {0!1} {0!2}\" $ Triple \"Hello\" 123 pi
-    putStrLn $ format1 \"Student: {no} {name} {age}\" $ Student 1 \"neo\" 30
-    putStrLn $ format \"A book: {}\" $ Book \"Math\" \"nobody\" 99.99
-    putStrLn $ format1 \"Book: {name}, Author: {author}, Price: {price:.2f}\" $
-      Book \"Math\" \"nobody\" 99.99
+main :: IO ()
+main = do
+  putStrLn $ format \"A unit {:U}\" ()
+  putStrLn $ format \"I like {}.\" Blue
+  putStrLn $ format \"Triple {0!0} {0!1} {0!2}\" $ Triple \"Hello\" 123 pi
+  putStrLn $ format1 \"Student: {no} {name} {age}\" $ Student 1 \"neo\" 30
+  putStrLn $ format \"A book: {}\" $ Book \"Math\" \"nobody\" 99.99
+  putStrLn $ format1 \"Book: {name}, Author: {author}, Price: {price:.2f}\" $
+    Book \"Math\" \"nobody\" 99.99
 @
 -}
 class FormatArg a where

@@ -30,9 +30,9 @@ literal text, it can be escaped by doubling {{ and }}.
 ==== Format string syntax
 
   @
-    format :: {chars | ("{" [key][":"fmt] "}")}
-    key    :: \<see 'ArgKey'\>
-    fmt    :: \<see 'ArgFmt'\>
+  format -> {chars | ("{" [key][":"fmt] "}")}
+  key    -> \<see 'ArgKey'\>
+  fmt    -> \<see 'ArgFmt'\>
   @
 
   Note: This library use a description language to describe syntax,
@@ -54,22 +54,22 @@ literal text, it can be escaped by doubling {{ and }}.
   A syntax expr may contain a list of fields as followings
 
   @
-    identifier                       identifier of an expr
-    \<description\>                    use human language as an expr
-    ::                               use right hand expr to describe identifier
-    ()                               a required field, may be omitted
-    []                               an optional field
-    {}                               repeat any times of the field
-    |                                logical or, choice between left and right
-    ""                               literal text
+  identifier                       identifier of an expr
+  \<description\>                    use natural language as an expr
+  ->                               use right hand expr to describe identifier
+  ()                               a required field, may be omitted
+  []                               an optional field
+  {}                               repeat any times of the field
+  |                                logical or, choice between left and right
+  ""                               literal text
   @
 
   Built-in exprs
 
   @
-    char  :: \<any character\>
-    chars :: {char}
-    int   :: \<integer without sign\>
+  char  -> \<any character\>
+  chars -> {char}
+  int   -> \<integer without sign\>
   @
 -}
 newtype Format = Format { unFormat :: [FmtItem] } deriving (Show, Eq)

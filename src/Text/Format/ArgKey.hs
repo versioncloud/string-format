@@ -17,7 +17,7 @@ import           Text.Format.Error
 ==== The key syntax
 
   @
-    key :: [(int | chars) {"!" (int | chars)}]
+  key -> [(int | chars) {"!" (int | chars)}]
   @
 
   Since the "!" is used to seprate keys, if you need to include a "!" in a
