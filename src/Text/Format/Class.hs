@@ -460,7 +460,10 @@ formatRealFloat x _ fmt@ArgFmt{fmtSpecs=specs, fmtPrecision=prec} =
     showx _ _ _     = throwM ArgFmtError
 
 
-{-| Use a default specs for the given formatter -}
+{-| Use a default specs for the given formatter
+
+@since 0.12.0
+-}
 defaultSpecs :: String -> (a -> Formatter) -> a -> Formatter
 defaultSpecs specs f x k fmt
   | fmtSpecs fmt == "" = f x k $ fmt {fmtSpecs = specs}
