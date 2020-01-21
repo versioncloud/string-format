@@ -8,6 +8,7 @@
 module Text.Format.Class
   ( Formatter
   , FormatArg(..)
+  , FromArgKey(..)
   , FormatType(..)
   , Options(..)
   , defaultOptions
@@ -27,8 +28,7 @@ import           Control.Monad.Catch
 import           Data.Char
 import           Data.Either
 import           Data.Int
-import           Data.List           ((!!))
-import           Data.Map            hiding (map)
+import           Data.Map            as M hiding (drop, map)
 import           Data.Maybe
 import           Data.Word
 import           GHC.Generics
@@ -137,9 +137,10 @@ class FormatArg a where
   formatArg = genericFormatArg defaultOptions
 
   formatArgList :: [a] -> Formatter
-  formatArgList xs (Index i)          = formatArg (xs !! i) mempty
-  formatArgList xs (Nest (Index i) k) = formatArg (xs !! i) k
-  formatArgList  _ _                  = const $ throwM ArgKeyError
+  formatArgList xs k | k == mempty = const $ throwM ArgKeyError
+  formatArgList xs k | Just i <- fromArgKey (topKey k) =
+    case drop (i - 1) xs of (x:_) -> formatArg x (popKey k)
+  formatArgList  _ _ = const $ throwM ArgKeyError
 
   -- | This method is used to get the key of a top-level argument.
   -- Top-level argument means argument that directly passed to format
@@ -195,19 +196,37 @@ instance FormatArg Word32 where
 instance FormatArg Word64 where
   formatArg = formatWord
 
-instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
+instance FormatArg a => FormatArg [a] where
   {-# SPECIALIZE instance FormatArg [Char] #-}
   formatArg = formatArgList
 
-instance FormatArg a => FormatArg (Map String a) where
-  formatArg x (Name n)          = formatArg (x ! n) mempty
-  formatArg x (Nest (Name n) k) = formatArg (x ! n) k
-  formatArg _ _                 = const $ throwM ArgKeyError
+instance (Ord k, FromArgKey k, FormatArg v) => FormatArg (Map k v) where
+  formatArg _ k | k == mempty = const $ throwM ArgKeyError
+  formatArg x k | (Just k') <- fromArgKey (topKey k) =
+    case (M.lookup k' x) of (Just x') -> formatArg x' (popKey k)
+  formatArg _ _ = const $ throwM ArgKeyError
 
-instance FormatArg a => FormatArg (Map Int a) where
-  formatArg x (Index i)          = formatArg (x ! i) mempty
-  formatArg x (Nest (Index i) k) = formatArg (x ! i) k
-  formatArg _ _                  = const $ throwM ArgKeyError
+
+--------------------------------------------------------------------------------
+{-| Typeclass for types that can be used as the key of a map-like or list-like
+ container.
+
+For example, since 'String' and 'Integral' datatypes are instance of
+ 'FromArgKey' and 'Double' is an instance of 'FormatArg', we can format a value
+of type 'Map' 'String' 'Double'.
+
+@since 0.13.0
+-}
+class FromArgKey a where
+  fromArgKey :: ArgKey -> Maybe a
+
+instance FromArgKey String where
+  fromArgKey (Name k) = Just k
+  fromArgKey _        = Nothing
+
+instance Integral k => FromArgKey k where
+  fromArgKey (Index i) = Just $ toEnum i
+  fromArgKey _         = Nothing
 
 
 --------------------------------------------------------------------------------

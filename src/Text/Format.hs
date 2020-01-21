@@ -17,6 +17,7 @@ module Text.Format
   , format1
     -- * Classes
   , FormatArg(formatArg)
+  , FromArgKey(..)
   , FormatType(..)
   -- * Generic format arg and options
   , Options
