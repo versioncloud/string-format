@@ -43,6 +43,7 @@ module Text.Format
   , formatWord
   , formatInteger
   , formatRealFloat
+  , defaultSpecs
     -- * Errors
   , ArgError(..)
   , errorArgKey

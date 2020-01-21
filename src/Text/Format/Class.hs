@@ -19,10 +19,10 @@ module Text.Format.Class
   , formatWord
   , formatInteger
   , formatRealFloat
+  , defaultSpecs
   ) where
 
 
-import           Control.Applicative
 import           Control.Monad.Catch
 import           Data.Char
 import           Data.Either
@@ -30,7 +30,6 @@ import           Data.Int
 import           Data.List           ((!!))
 import           Data.Map            hiding (map)
 import           Data.Maybe
-import           Data.Time.Format
 import           Data.Word
 import           GHC.Generics
 import           Numeric
@@ -127,6 +126,9 @@ main = do
   putStrLn $ format1 \"Book: {name}, Author: {author}, Price: {price:.2f}\" $
     Book \"Math\" \"nobody\" 99.99
 @
+
+Note: Since v0.12.0, 'FormatTime' instance has been remove,
+use [vformat-time](http://hackage.haskell.org/package/vformat-time) instead.
 -}
 class FormatArg a where
   formatArg :: a -> Formatter
@@ -192,13 +194,6 @@ instance FormatArg Word32 where
 
 instance FormatArg Word64 where
   formatArg = formatWord
-
--- | Default specs is \"%Y-%m-%dT%H:%M:%S\", see 'formatTime'.
-instance {-# OVERLAPPABLE #-} FormatTime t => FormatArg t where
-  formatArg x k fmt =
-    let specs = fmtSpecs fmt <|> "%Y-%m-%dT%H:%M:%S"
-        x'    = formatTime defaultTimeLocale specs x
-    in formatArg x' k $ fmt{fmtSpecs=""}
 
 instance {-# OVERLAPPABLE #-} FormatArg a => FormatArg [a] where
   {-# SPECIALIZE instance FormatArg [Char] #-}
@@ -463,3 +458,10 @@ formatRealFloat x _ fmt@ArgFmt{fmtSpecs=specs, fmtPrecision=prec} =
     showx "G" p x   = map toUpper <$> showx "g" p x
     showx "%" p x   = (++ "%") <$> (showx "f" p (x * 100))
     showx _ _ _     = throwM ArgFmtError
+
+
+{-| Use a default specs for the given formatter -}
+defaultSpecs :: String -> (a -> Formatter) -> a -> Formatter
+defaultSpecs specs f x k fmt
+  | fmtSpecs fmt == "" = f x k $ fmt {fmtSpecs = specs}
+  | otherwise = f x k fmt
