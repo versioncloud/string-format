@@ -14,3 +14,7 @@
 ## V0.12.0
 - Add `defaultSpecs`
 - Remove `FormatTime` instance
+
+## V0.13.0
+- Add `FromArgKey` typeclass
+- Fix `OVERLAPPABLE` issue
