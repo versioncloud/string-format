@@ -10,3 +10,7 @@
 - Make generic instantiate FormatArg configurable
 - Expose standard formatters
 - Fix some issue and doc
+
+## V0.12.0
+- Add `defaultSpecs`
+- Remove `FormatTime` instance
