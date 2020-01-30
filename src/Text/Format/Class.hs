@@ -220,13 +220,13 @@ of type 'Map' 'String' 'Double'.
 class FromArgKey a where
   fromArgKey :: ArgKey -> Maybe a
 
-instance FromArgKey String where
-  fromArgKey (Name k) = Just k
-  fromArgKey _        = Nothing
-
 instance Integral k => FromArgKey k where
   fromArgKey (Index i) = Just $ toEnum i
   fromArgKey _         = Nothing
+
+instance {-# OVERLAPPING #-} FromArgKey String where
+  fromArgKey (Name k) = Just k
+  fromArgKey _        = Nothing
 
 
 --------------------------------------------------------------------------------
