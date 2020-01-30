@@ -16,7 +16,7 @@ dependencies:
 - base >= 4.7 && < 5
 - containers >= 0.5.9 && < 1.0
 - exceptions >= 0.8 && < 1.0
-- template-haskell >= 2.12 && < 3.0
+- template-haskell >= 2.7 && < 3.0
 
 library:
   source-dirs: src
