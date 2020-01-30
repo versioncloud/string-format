@@ -1,5 +1,5 @@
 name:                vformat
-version:             0.14.0.0
+version:             0.14.1.0
 synopsis:            A Python str.format() like formatter
 description:         Please see the http://hackage.haskell.org/package/vformat
 github:              versioncloud/vformat

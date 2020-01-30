@@ -1,5 +1,9 @@
 # Changelog for vformat
 
+## V0.14.1
+- Fix `FromArgKey` overlapping bug
+- Fix `template-haskell` version issue
+
 ## V0.14.0
 - Add `QuasiQuoter`s for `Format` and `Format1`
 
